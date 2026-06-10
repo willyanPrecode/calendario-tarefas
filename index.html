@@ -7,6 +7,31 @@
 </head>
 <body>
 
+<!-- Login -->
+<div class="overlay" id="authOverlay">
+  <div class="modal" style="width:340px">
+    <div class="modal-hd">
+      <h2>Entrar</h2>
+    </div>
+    <form id="authForm">
+      <div class="form-field">
+        <label class="form-label" for="authUser">Usuário</label>
+        <input class="form-input" id="authUser" type="text" autocomplete="username" required>
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="authPass">Senha</label>
+        <input class="form-input" id="authPass" type="password" autocomplete="current-password" required>
+      </div>
+      <div class="auth-error" id="authError"></div>
+      <div class="modal-ft">
+        <button class="btn-primary" type="submit" id="authSubmitBtn" style="width:100%">Entrar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="appRoot" class="hidden">
+
 <div class="header">
   <div>
     <h1>Calendário de Tarefas</h1>
@@ -17,6 +42,10 @@
     <div class="legend-item"><div class="legend-chip" style="background:var(--c-media)"></div>Média</div>
     <div class="legend-item"><div class="legend-chip" style="background:var(--c-alta)"></div>Alta</div>
     <div class="legend-item"><div class="legend-chip" style="background:var(--c-muito-alta)"></div>Muito Alta</div>
+  </div>
+  <div class="auth-info">
+    <span id="loggedUser"></span>
+    <button class="btn-sm" id="logoutBtn">Sair</button>
   </div>
 </div>
 
@@ -149,6 +178,8 @@
       <button class="btn-primary" id="reportOkBtn">Entendi</button>
     </div>
   </div>
+</div>
+
 </div>
 
 <script type="module" src="/src/main.js"></script>

@@ -1,5 +1,5 @@
 import './style.css';
-import { sb } from './supabaseClient.js';
+import { sb, setSessionToken } from './supabaseClient.js';
 
 const COLORS = { 'baixa':'#10B981','media':'#3B82F6','alta':'#F59E0B','muito-alta':'#EF4444' };
 const PLABEL = { 'baixa':'Baixa','media':'Média','alta':'Alta','muito-alta':'Muito Alta' };
@@ -396,4 +396,92 @@ document.getElementById('popDelBtn').addEventListener('click', async ()=>{
   }
 });
 
-loadTasks();
+/* auth */
+const SESSION_TOKEN_KEY   = 'ct_session_token';
+const SESSION_EXPIRES_KEY = 'ct_session_expires';
+const SESSION_USER_KEY    = 'ct_session_user';
+
+function getSession() {
+  const token   = localStorage.getItem(SESSION_TOKEN_KEY);
+  const expires = localStorage.getItem(SESSION_EXPIRES_KEY);
+  if (!token || !expires) return null;
+  if (new Date(expires) <= new Date()) return null;
+  return { token, username: localStorage.getItem(SESSION_USER_KEY) };
+}
+
+function clearSession() {
+  localStorage.removeItem(SESSION_TOKEN_KEY);
+  localStorage.removeItem(SESSION_EXPIRES_KEY);
+  localStorage.removeItem(SESSION_USER_KEY);
+  setSessionToken(null);
+}
+
+function showAuthOverlay() {
+  document.getElementById('authOverlay').classList.remove('hidden');
+  document.getElementById('appRoot').classList.add('hidden');
+}
+
+function hideAuthOverlay() {
+  document.getElementById('authOverlay').classList.add('hidden');
+  document.getElementById('appRoot').classList.remove('hidden');
+}
+
+async function handleLogin(e) {
+  e.preventDefault();
+  const username = document.getElementById('authUser').value.trim();
+  const password = document.getElementById('authPass').value;
+  const errEl = document.getElementById('authError');
+  const btn = document.getElementById('authSubmitBtn');
+  errEl.textContent = '';
+  if (!username || !password) return;
+
+  btn.disabled = true;
+  const { data, error } = await sb.rpc('login', { p_username: username, p_password: password });
+  btn.disabled = false;
+
+  if (error) {
+    const msg = error.message || '';
+    if (msg.includes('PERMANENTLY_BLOCKED')) {
+      errEl.textContent = 'Excesso de tentativas inválidas. Acesso bloqueado permanentemente para este IP.';
+    } else if (msg.includes('TEMPORARILY_BLOCKED')) {
+      const secs = msg.split(':')[1] || '60';
+      errEl.textContent = `Muitas tentativas inválidas. Tente novamente em ${secs}s.`;
+    } else {
+      errEl.textContent = 'Usuário ou senha inválidos.';
+    }
+    return;
+  }
+
+  localStorage.setItem(SESSION_TOKEN_KEY, data.token);
+  localStorage.setItem(SESSION_EXPIRES_KEY, data.expires_at);
+  localStorage.setItem(SESSION_USER_KEY, data.username);
+  setSessionToken(data.token);
+  document.getElementById('authPass').value = '';
+  document.getElementById('loggedUser').textContent = data.username;
+  hideAuthOverlay();
+  await loadTasks();
+}
+
+function handleLogout() {
+  clearSession();
+  location.reload();
+}
+
+document.getElementById('authForm').addEventListener('submit', handleLogin);
+document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+
+async function init() {
+  const session = getSession();
+  if (session) {
+    setSessionToken(session.token);
+    document.getElementById('loggedUser').textContent = session.username || '';
+    hideAuthOverlay();
+    await loadTasks();
+  } else {
+    clearSession();
+    showAuthOverlay();
+    setTimeout(()=>document.getElementById('authUser').focus(), 40);
+  }
+}
+
+init();

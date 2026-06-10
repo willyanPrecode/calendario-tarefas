@@ -46,6 +46,13 @@ body{
 }
 .btn-sm:hover{background:var(--surface2)}
 
+/* ── Auth ── */
+.auth-info{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted);margin-left:20px}
+.auth-error{
+  color:var(--c-muito-alta);font-size:12px;min-height:16px;
+  margin:-8px 0 8px;
+}
+
 /* ── Filter bar ── */
 .filter-bar{display:flex;gap:10px;margin-bottom:12px}
 .filter-bar #searchInput{flex:1}
