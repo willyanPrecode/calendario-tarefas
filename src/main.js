@@ -20,7 +20,8 @@ async function loadTasks() {
   if (error) { console.error(error); return; }
   allTasks = data.map(t => ({
     id: t.id, title: t.title, s: t.start_date, e: t.end_date,
-    p: t.priority, responsible: t.responsible || ''
+    p: t.priority, responsible: t.responsible || '',
+    createdBy: t.created_by || '', updatedBy: t.updated_by || '', updatedAt: t.updated_at
   }));
   populateResponsibleFilter();
   applyFilters();
@@ -258,6 +259,12 @@ function showPopup(id, evt) {
   document.getElementById('popName').textContent = t.title;
   document.getElementById('popDates').textContent = `${fmt(t.s)} → ${fmt(t.e)}`;
   document.getElementById('popResponsible').textContent = t.responsible ? `Responsável: ${t.responsible}` : 'Sem responsável';
+  const auditEl = document.getElementById('popAudit');
+  const auditLines = [];
+  if (t.createdBy) auditLines.push(`Criado por: ${t.createdBy}`);
+  if (t.updatedBy && t.updatedBy !== t.createdBy) auditLines.push(`Editado por: ${t.updatedBy}`);
+  auditEl.innerHTML = auditLines.join('<br>');
+  auditEl.style.display = auditLines.length ? '' : 'none';
   const badge = document.getElementById('popBadge');
   badge.innerHTML = `<div class="badge-dot" style="background:${COLORS[t.p]}"></div>${PLABEL[t.p]}`;
   badge.style.cssText = `background:${COLORS[t.p]}1a;color:${COLORS[t.p]}`;
