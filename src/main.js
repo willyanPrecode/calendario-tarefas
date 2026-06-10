@@ -4,27 +4,42 @@ import { sb } from './supabaseClient.js';
 const COLORS = { 'baixa':'#10B981','media':'#3B82F6','alta':'#F59E0B','muito-alta':'#EF4444' };
 const PLABEL = { 'baixa':'Baixa','media':'Média','alta':'Alta','muito-alta':'Muito Alta' };
 
+let allTasks = [];
 let tasks    = [];
 let viewYear = new Date().getFullYear();
 let viewMon  = new Date().getMonth();
 let editId   = null;
 let popId    = null;
+let searchQuery     = '';
+let priorityFilter  = '';
 
 /* persistence */
 async function loadTasks() {
   const { data, error } = await sb.from('tasks').select('*').order('start_date');
   if (error) { console.error(error); return; }
-  tasks = data.map(t => ({
+  allTasks = data.map(t => ({
     id: t.id, title: t.title, s: t.start_date, e: t.end_date,
     p: t.priority, responsible: t.responsible || ''
   }));
+  applyFilters();
+}
+
+/* filters */
+function applyFilters() {
+  tasks = allTasks.filter(t => {
+    const matchesSearch = !searchQuery || t.title.toLowerCase().includes(searchQuery);
+    const matchesPriority = !priorityFilter || t.p === priorityFilter;
+    return matchesSearch && matchesPriority;
+  });
   render();
 }
 
 function updateCount() {
   const n = tasks.length;
+  const total = allTasks.length;
+  const label = `${n} tarefa${n !== 1 ? 's' : ''} cadastrada${n !== 1 ? 's' : ''}`;
   document.getElementById('taskCount').textContent =
-    `${n} tarefa${n !== 1 ? 's' : ''} cadastrada${n !== 1 ? 's' : ''}`;
+    (n !== total) ? `${label} (de ${total})` : label;
 }
 
 /* date helpers */
@@ -264,6 +279,15 @@ document.getElementById('nextBtn').addEventListener('click', ()=>{
 });
 document.getElementById('todayBtn').addEventListener('click', ()=>{
   viewYear=new Date().getFullYear(); viewMon=new Date().getMonth(); render();
+});
+
+document.getElementById('searchInput').addEventListener('input', e=>{
+  searchQuery = e.target.value.trim().toLowerCase();
+  applyFilters();
+});
+document.getElementById('priorityFilter').addEventListener('change', e=>{
+  priorityFilter = e.target.value;
+  applyFilters();
 });
 
 document.getElementById('overlay').addEventListener('click', e=>{

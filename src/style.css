@@ -46,6 +46,11 @@ body{
 }
 .btn-sm:hover{background:var(--surface2)}
 
+/* ── Filter bar ── */
+.filter-bar{display:flex;gap:10px;margin-bottom:12px}
+.filter-bar #searchInput{flex:1}
+.filter-bar #priorityFilter{flex:0 0 200px;cursor:pointer}
+
 /* ── Calendar ── */
 .cal-wrap{border:1px solid var(--border);border-radius:12px;overflow:hidden}
 
