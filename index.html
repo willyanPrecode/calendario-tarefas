@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calendário de Tarefas</title>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>Calendário de Tarefas</h1>
+    <p id="taskCount">0 tarefas cadastradas</p>
+  </div>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-chip" style="background:var(--c-baixa)"></div>Baixa</div>
+    <div class="legend-item"><div class="legend-chip" style="background:var(--c-media)"></div>Média</div>
+    <div class="legend-item"><div class="legend-chip" style="background:var(--c-alta)"></div>Alta</div>
+    <div class="legend-item"><div class="legend-chip" style="background:var(--c-muito-alta)"></div>Muito Alta</div>
+  </div>
+</div>
+
+<div class="cal-nav">
+  <button class="btn-icon" id="prevBtn">&#8249;</button>
+  <button class="btn-icon" id="nextBtn">&#8250;</button>
+  <span class="cal-month-label" id="monthLabel"></span>
+  <button class="btn-sm" id="todayBtn">Hoje</button>
+</div>
+
+<div class="cal-wrap">
+  <div class="cal-head">
+    <div class="cal-head-cell">Dom</div>
+    <div class="cal-head-cell">Seg</div>
+    <div class="cal-head-cell">Ter</div>
+    <div class="cal-head-cell">Qua</div>
+    <div class="cal-head-cell">Qui</div>
+    <div class="cal-head-cell">Sex</div>
+    <div class="cal-head-cell">Sáb</div>
+  </div>
+  <div id="calGrid"></div>
+</div>
+
+<button class="fab" id="fabBtn">
+  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+  Nova Tarefa
+</button>
+
+<!-- Modal -->
+<div class="overlay hidden" id="overlay">
+  <div class="modal">
+    <div class="modal-hd">
+      <h2 id="modalTitle">Nova Tarefa</h2>
+      <button class="btn-x" id="closeBtn">×</button>
+    </div>
+
+    <div class="form-field">
+      <label class="form-label" for="fTitle">Título</label>
+      <input class="form-input" id="fTitle" type="text" placeholder="Nome da tarefa..." autocomplete="off">
+    </div>
+
+    <div class="form-field">
+      <label class="form-label" for="fResponsible">Responsável</label>
+      <input class="form-input" id="fResponsible" type="text" placeholder="Nome do responsável..." autocomplete="off">
+    </div>
+
+    <div class="form-field">
+      <label class="form-label">Prioridade</label>
+      <div class="priority-grid">
+        <div>
+          <input type="radio" name="fp" id="pBaixa" value="baixa" class="p-radio" checked>
+          <label for="pBaixa" class="p-btn">
+            <div class="p-swatch" style="background:var(--c-baixa)"></div>Baixa
+          </label>
+        </div>
+        <div>
+          <input type="radio" name="fp" id="pMedia" value="media" class="p-radio">
+          <label for="pMedia" class="p-btn">
+            <div class="p-swatch" style="background:var(--c-media)"></div>Média
+          </label>
+        </div>
+        <div>
+          <input type="radio" name="fp" id="pAlta" value="alta" class="p-radio">
+          <label for="pAlta" class="p-btn">
+            <div class="p-swatch" style="background:var(--c-alta)"></div>Alta
+          </label>
+        </div>
+        <div>
+          <input type="radio" name="fp" id="pMuitoAlta" value="muito-alta" class="p-radio">
+          <label for="pMuitoAlta" class="p-btn">
+            <div class="p-swatch" style="background:var(--c-muito-alta)"></div>Muito Alta
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-field">
+        <label class="form-label" for="fStart">Data de Início</label>
+        <input class="form-input" id="fStart" type="date">
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="fEnd">Prazo Final</label>
+        <input class="form-input" id="fEnd" type="date">
+      </div>
+    </div>
+
+    <div class="modal-ft">
+      <button class="btn-ghost" id="cancelBtn">Cancelar</button>
+      <button class="btn-primary" id="saveBtn">Salvar Tarefa</button>
+    </div>
+  </div>
+</div>
+
+<!-- Popup de detalhe -->
+<div class="popup hidden" id="popup">
+  <div class="popup-name" id="popName"></div>
+  <div class="popup-dates" id="popDates"></div>
+  <div class="popup-dates" id="popResponsible"></div>
+  <div class="popup-badge" id="popBadge"></div>
+  <div class="popup-actions">
+    <button class="pop-btn" id="popEditBtn">Editar</button>
+    <button class="pop-btn del" id="popDelBtn">Excluir</button>
+  </div>
+</div>
+
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
