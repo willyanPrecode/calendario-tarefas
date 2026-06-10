@@ -49,7 +49,7 @@ body{
 /* ── Filter bar ── */
 .filter-bar{display:flex;gap:10px;margin-bottom:12px}
 .filter-bar #searchInput{flex:1}
-.filter-bar #priorityFilter{flex:0 0 200px;cursor:pointer}
+.filter-bar #priorityFilter,.filter-bar #responsibleFilter{flex:0 0 200px;cursor:pointer}
 
 /* ── Calendar ── */
 .cal-wrap{border:1px solid var(--border);border-radius:12px;overflow:hidden}
@@ -96,7 +96,7 @@ body{
 
 /* ── FAB ── */
 .fab{
-  position:fixed;bottom:28px;right:28px;
+  position:fixed;bottom:28px;right:28px;z-index:50;
   background:#3B82F6;color:#fff;border:none;border-radius:100px;
   padding:13px 22px;font-size:14px;font-weight:700;cursor:pointer;
   display:flex;align-items:center;gap:8px;
@@ -174,6 +174,21 @@ body{
   font-size:13px;font-weight:700;transition:background .15s
 }
 .btn-primary:hover{background:#2563EB}
+
+/* ── Report ── */
+.report-empty{font-size:13px;color:var(--muted);padding:8px 0 4px}
+.report-item{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:10px 0;border-bottom:1px solid var(--border)
+}
+.report-item:last-child{border-bottom:none}
+.report-info{display:flex;flex-direction:column;gap:3px;min-width:0}
+.report-title{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.report-meta{font-size:11px;color:var(--muted)}
+.report-prio{
+  flex-shrink:0;display:inline-flex;align-items:center;gap:6px;
+  padding:4px 10px;border-radius:100px;font-size:11px;font-weight:700
+}
 
 /* ── Popup ── */
 .popup{

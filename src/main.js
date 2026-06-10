@@ -10,8 +10,9 @@ let viewYear = new Date().getFullYear();
 let viewMon  = new Date().getMonth();
 let editId   = null;
 let popId    = null;
-let searchQuery     = '';
-let priorityFilter  = '';
+let searchQuery       = '';
+let priorityFilter    = '';
+let responsibleFilter = '';
 
 /* persistence */
 async function loadTasks() {
@@ -21,15 +22,27 @@ async function loadTasks() {
     id: t.id, title: t.title, s: t.start_date, e: t.end_date,
     p: t.priority, responsible: t.responsible || ''
   }));
+  populateResponsibleFilter();
   applyFilters();
+  maybeShowDeadlineReport();
 }
 
 /* filters */
+function populateResponsibleFilter() {
+  const sel = document.getElementById('responsibleFilter');
+  const current = sel.value;
+  const names = [...new Set(allTasks.map(t => t.responsible).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  sel.innerHTML = '<option value="">Todos os responsáveis</option>' +
+    names.map(n => `<option value="${n}">${n}</option>`).join('');
+  if (names.includes(current)) sel.value = current;
+}
+
 function applyFilters() {
   tasks = allTasks.filter(t => {
     const matchesSearch = !searchQuery || t.title.toLowerCase().includes(searchQuery);
     const matchesPriority = !priorityFilter || t.p === priorityFilter;
-    return matchesSearch && matchesPriority;
+    const matchesResponsible = !responsibleFilter || t.responsible === responsibleFilter;
+    return matchesSearch && matchesPriority && matchesResponsible;
   });
   render();
 }
@@ -265,6 +278,49 @@ function hidePopup() {
   popId = null;
 }
 
+/* relatório de prazos da semana */
+const REPORT_STORAGE_KEY = 'ct_last_report_date';
+
+function maybeShowDeadlineReport() {
+  const today = toInput(new Date());
+  if (localStorage.getItem(REPORT_STORAGE_KEY) === today) return;
+  localStorage.setItem(REPORT_STORAGE_KEY, today);
+  showDeadlineReport();
+}
+
+function showDeadlineReport() {
+  const todayDt = sod(new Date());
+  const weekEnd = new Date(todayDt);
+  weekEnd.setDate(weekEnd.getDate() + (6 - weekEnd.getDay()));
+  weekEnd.setHours(23,59,59,999);
+
+  const dueSoon = allTasks
+    .filter(t => { const e = ld(t.e); return e >= todayDt && e <= weekEnd; })
+    .sort((a,b) => ld(a.e) - ld(b.e));
+
+  const list = document.getElementById('reportList');
+  if (dueSoon.length === 0) {
+    list.innerHTML = '<div class="report-empty">Nenhuma tarefa com prazo para esta semana. 🎉</div>';
+  } else {
+    list.innerHTML = dueSoon.map(t => `
+      <div class="report-item">
+        <div class="report-info">
+          <div class="report-title">${t.title}</div>
+          <div class="report-meta">Prazo: ${fmt(t.e)}${t.responsible ? ' · ' + t.responsible : ''}</div>
+        </div>
+        <div class="report-prio" style="background:${COLORS[t.p]}1a;color:${COLORS[t.p]}">
+          <div class="badge-dot" style="background:${COLORS[t.p]}"></div>${PLABEL[t.p]}
+        </div>
+      </div>
+    `).join('');
+  }
+  document.getElementById('reportOverlay').classList.remove('hidden');
+}
+
+function hideReport() {
+  document.getElementById('reportOverlay').classList.add('hidden');
+}
+
 /* events */
 document.getElementById('fabBtn')  .addEventListener('click', ()=>openModal());
 document.getElementById('closeBtn').addEventListener('click', closeModal);
@@ -289,6 +345,10 @@ document.getElementById('priorityFilter').addEventListener('change', e=>{
   priorityFilter = e.target.value;
   applyFilters();
 });
+document.getElementById('responsibleFilter').addEventListener('change', e=>{
+  responsibleFilter = e.target.value;
+  applyFilters();
+});
 
 document.getElementById('overlay').addEventListener('click', e=>{
   if(e.target===document.getElementById('overlay')) closeModal();
@@ -297,6 +357,7 @@ document.getElementById('overlay').addEventListener('click', e=>{
 document.addEventListener('keydown', e=>{
   if(e.key==='Escape'){
     if(!document.getElementById('overlay').classList.contains('hidden')) closeModal();
+    else if(!document.getElementById('reportOverlay').classList.contains('hidden')) hideReport();
     else hidePopup();
   }
 });
@@ -318,6 +379,12 @@ document.getElementById('fStart').addEventListener('change', ()=>{
 document.getElementById('popEditBtn').addEventListener('click', ()=>{
   const id=popId; hidePopup(); openModal(id);
 });
+document.getElementById('reportCloseBtn').addEventListener('click', hideReport);
+document.getElementById('reportOkBtn').addEventListener('click', hideReport);
+document.getElementById('reportOverlay').addEventListener('click', e=>{
+  if(e.target===document.getElementById('reportOverlay')) hideReport();
+});
+
 document.getElementById('popDelBtn').addEventListener('click', async ()=>{
   if(!popId) return;
   const name = tasks.find(t=>t.id===popId)?.title;

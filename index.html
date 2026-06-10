@@ -36,6 +36,9 @@
     <option value="alta">Alta</option>
     <option value="muito-alta">Muito Alta</option>
   </select>
+  <select class="form-input" id="responsibleFilter">
+    <option value="">Todos os responsáveis</option>
+  </select>
 </div>
 
 <div class="cal-wrap">
@@ -131,6 +134,20 @@
   <div class="popup-actions">
     <button class="pop-btn" id="popEditBtn">Editar</button>
     <button class="pop-btn del" id="popDelBtn">Excluir</button>
+  </div>
+</div>
+
+<!-- Relatório de prazos da semana -->
+<div class="overlay hidden" id="reportOverlay">
+  <div class="modal">
+    <div class="modal-hd">
+      <h2>Tarefas terminando esta semana</h2>
+      <button class="btn-x" id="reportCloseBtn">×</button>
+    </div>
+    <div id="reportList"></div>
+    <div class="modal-ft">
+      <button class="btn-primary" id="reportOkBtn">Entendi</button>
+    </div>
   </div>
 </div>
 
