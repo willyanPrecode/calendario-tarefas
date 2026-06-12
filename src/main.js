@@ -574,11 +574,34 @@ function openInviteModal() {
   url.search = '';
   url.searchParams.set('invite', w.inviteToken);
   document.getElementById('inviteLink').value = url.toString();
+  document.getElementById('inviteEmail').value = '';
+  document.getElementById('inviteEmailError').textContent = '';
+  document.getElementById('inviteEmailInfo').classList.add('hidden');
   document.getElementById('inviteOverlay').classList.remove('hidden');
 }
 
 function closeInviteModal() {
   document.getElementById('inviteOverlay').classList.add('hidden');
+}
+
+async function sendInviteEmail() {
+  const email = document.getElementById('inviteEmail').value.trim();
+  const errEl = document.getElementById('inviteEmailError');
+  const infoEl = document.getElementById('inviteEmailInfo');
+  const btn = document.getElementById('inviteEmailBtn');
+  errEl.textContent = '';
+  infoEl.classList.add('hidden');
+  if (!email) { errEl.textContent = 'Informe um e-mail.'; return; }
+
+  btn.disabled = true;
+  const { error } = await sb.rpc('invite_member_by_email', { p_workspace_id: currentWorkspaceId, p_email: email });
+  btn.disabled = false;
+
+  if (error) { console.error(error); errEl.textContent = 'Não foi possível enviar o convite.'; return; }
+
+  document.getElementById('inviteEmail').value = '';
+  infoEl.textContent = `Convite enviado para ${email}.`;
+  infoEl.classList.remove('hidden');
 }
 
 async function acceptPendingInvite() {
@@ -616,6 +639,11 @@ document.getElementById('inviteCopyBtn').addEventListener('click', async ()=>{
   const original = btn.textContent;
   btn.textContent = 'Copiado!';
   setTimeout(()=>btn.textContent = original, 1500);
+});
+
+document.getElementById('inviteEmailBtn').addEventListener('click', sendInviteEmail);
+document.getElementById('inviteEmail').addEventListener('keydown', e=>{
+  if(e.key==='Enter') sendInviteEmail();
 });
 
 document.getElementById('workspaceSelect').addEventListener('change', async e=>{
