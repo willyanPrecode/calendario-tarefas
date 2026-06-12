@@ -11,6 +11,8 @@ let allTasks = [];
 let tasks    = [];
 let viewYear = new Date().getFullYear();
 let viewMon  = new Date().getMonth();
+let viewMode = 'month';
+let viewWeekAnchor = new Date();
 let editId   = null;
 let popId    = null;
 let searchQuery       = '';
@@ -186,88 +188,193 @@ function assignLanes(wt, week) {
 }
 
 /* render */
-function render() {
+const BAR_H = 22, GAP = 3, PAD = 4;
+const PRIORITY_RANK = { 'baixa':0, 'media':1, 'alta':2, 'muito-alta':3 };
+
+function buildWeekRow(week, monthForOtherCheck) {
   const today = sod(new Date());
-  const grid  = document.getElementById('calGrid');
-  grid.innerHTML = '';
+  const weekEl = document.createElement('div');
+  weekEl.className = 'cal-week';
 
-  document.getElementById('monthLabel').textContent =
-    new Date(viewYear, viewMon, 1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
-
-  const weeks  = getWeeks(viewYear, viewMon);
-  const BAR_H  = 22, GAP = 3, PAD = 4;
-
-  weeks.forEach(week => {
-    const weekEl = document.createElement('div');
-    weekEl.className = 'cal-week';
-
-    /* cells */
-    const cells = document.createElement('div');
-    cells.className = 'cal-cells';
-    week.forEach(day => {
-      const c = document.createElement('div');
-      c.className = 'cal-cell' +
-        (day.getMonth()!==viewMon ? ' other-month':'') +
-        (day.getTime()===today.getTime() ? ' today':'');
-      const n = document.createElement('div');
-      n.className = 'day-num';
-      n.textContent = day.getDate();
-      c.appendChild(n);
-      c.addEventListener('click', () => openModal(null, day));
-      cells.appendChild(c);
-    });
-    weekEl.appendChild(cells);
-
-    /* bars */
-    const wt = weekTasks(week);
-    if (wt.length > 0) {
-      const ws    = sod(week[0]);
-      const we    = new Date(week[6]); we.setHours(23,59,59,999);
-      const lanes = assignLanes(wt, week);
-      const maxL  = Math.max(...Object.values(lanes));
-      const barsEl = document.createElement('div');
-      barsEl.className = 'cal-bars';
-      barsEl.style.height = `${PAD*2 + (maxL+1)*(BAR_H+GAP)}px`;
-
-      wt.forEach(t => {
-        const ts = ld(t.s), te = ld(t.e);
-        const cs = new Date(Math.max(ts, ws));
-        const ce = new Date(Math.min(te, we));
-        const sc = cs.getDay(), ec = ce.getDay();
-        const cL = ts < ws, cR = te > we;
-        const lane = lanes[occKey(t)];
-        const isRecurring = !!(t.recurrence && t.recurrence.type !== 'none');
-        const baseId = t._baseId || t.id;
-
-        const lp = sc/7*100;
-        const wp = (ec-sc+1)/7*100;
-
-        const bar = document.createElement('div');
-        bar.className = 'task-bar' + (isRecurring ? ' recurring' : '');
-        bar.dataset.id = baseId;
-        bar.dataset.occDate = t.s;
-        bar.title = t.title;
-        bar.style.cssText = [
-          `left:calc(${lp}% + 2px)`,
-          `width:calc(${wp}% - 4px)`,
-          `top:${PAD + lane*(BAR_H+GAP)}px`,
-          `background:${COLORS[t.p]}`,
-          `border-radius:${cL?'0':'6px'} ${cR?'0':'6px'} ${cR?'0':'6px'} ${cL?'0':'6px'}`,
-          `z-index:${lane+1}`
-        ].join(';');
-        bar.textContent = (cL ? '◂ ' : '') + (isRecurring ? '↻ ' : '') + t.title;
-        bar.addEventListener('click', e => { e.stopPropagation(); showPopup(baseId, e, t.s); });
-        barsEl.appendChild(bar);
-      });
-      weekEl.appendChild(barsEl);
-    } else {
-      const sp = document.createElement('div');
-      sp.style.height = '10px';
-      weekEl.appendChild(sp);
-    }
-
-    grid.appendChild(weekEl);
+  /* cells */
+  const cells = document.createElement('div');
+  cells.className = 'cal-cells';
+  week.forEach(day => {
+    const c = document.createElement('div');
+    c.className = 'cal-cell' +
+      (monthForOtherCheck != null && day.getMonth()!==monthForOtherCheck ? ' other-month':'') +
+      (day.getTime()===today.getTime() ? ' today':'');
+    const n = document.createElement('div');
+    n.className = 'day-num';
+    n.textContent = day.getDate();
+    c.appendChild(n);
+    c.addEventListener('click', () => openModal(null, day));
+    cells.appendChild(c);
   });
+  weekEl.appendChild(cells);
+
+  /* bars */
+  const wt = weekTasks(week);
+  if (wt.length > 0) {
+    const ws    = sod(week[0]);
+    const we    = new Date(week[6]); we.setHours(23,59,59,999);
+    const lanes = assignLanes(wt, week);
+    const maxL  = Math.max(...Object.values(lanes));
+    const barsEl = document.createElement('div');
+    barsEl.className = 'cal-bars';
+    barsEl.style.height = `${PAD*2 + (maxL+1)*(BAR_H+GAP)}px`;
+
+    wt.forEach(t => {
+      const ts = ld(t.s), te = ld(t.e);
+      const cs = new Date(Math.max(ts, ws));
+      const ce = new Date(Math.min(te, we));
+      const sc = cs.getDay(), ec = ce.getDay();
+      const cL = ts < ws, cR = te > we;
+      const lane = lanes[occKey(t)];
+      const isRecurring = !!(t.recurrence && t.recurrence.type !== 'none');
+      const baseId = t._baseId || t.id;
+
+      const lp = sc/7*100;
+      const wp = (ec-sc+1)/7*100;
+
+      const bar = document.createElement('div');
+      bar.className = 'task-bar' + (isRecurring ? ' recurring' : '');
+      bar.dataset.id = baseId;
+      bar.dataset.occDate = t.s;
+      bar.title = t.title;
+      bar.style.cssText = [
+        `left:calc(${lp}% + 2px)`,
+        `width:calc(${wp}% - 4px)`,
+        `top:${PAD + lane*(BAR_H+GAP)}px`,
+        `background:${COLORS[t.p]}`,
+        `border-radius:${cL?'0':'6px'} ${cR?'0':'6px'} ${cR?'0':'6px'} ${cL?'0':'6px'}`,
+        `z-index:${lane+1}`
+      ].join(';');
+      bar.textContent = (cL ? '◂ ' : '') + (isRecurring ? '↻ ' : '') + t.title;
+      bar.addEventListener('click', e => { e.stopPropagation(); showPopup(baseId, e, t.s); });
+      barsEl.appendChild(bar);
+    });
+    weekEl.appendChild(barsEl);
+  } else {
+    const sp = document.createElement('div');
+    sp.style.height = '10px';
+    weekEl.appendChild(sp);
+  }
+
+  return weekEl;
+}
+
+function formatWeekLabel(week) {
+  const a = week[0], b = week[6];
+  const optsA = a.getMonth()===b.getMonth() ? {day:'2-digit'} : {day:'2-digit',month:'short'};
+  const optsB = {day:'2-digit',month:'short',year:'numeric'};
+  return `${a.toLocaleDateString('pt-BR',optsA)} – ${b.toLocaleDateString('pt-BR',optsB)}`;
+}
+
+function tasksOnDay(date) {
+  const d = sod(date);
+  return tasks.filter(t => {
+    if (t.recurrence && t.recurrence.type !== 'none') {
+      const occ = getOccurrenceDates(t, d, d);
+      return !!(occ && occ.length > 0);
+    }
+    return ld(t.s) <= d && ld(t.e) >= d;
+  });
+}
+
+function renderYear(grid) {
+  const today = sod(new Date());
+  const yearGrid = document.createElement('div');
+  yearGrid.className = 'year-grid';
+
+  for (let m = 0; m < 12; m++) {
+    const card = document.createElement('div');
+    card.className = 'year-month';
+
+    const head = document.createElement('div');
+    head.className = 'year-month-head';
+    head.textContent = new Date(viewYear, m, 1).toLocaleDateString('pt-BR',{month:'long'});
+    head.addEventListener('click', () => goToMonth(viewYear, m));
+    card.appendChild(head);
+
+    const miniHead = document.createElement('div');
+    miniHead.className = 'year-mini-head';
+    ['D','S','T','Q','Q','S','S'].forEach(w => {
+      const c = document.createElement('div');
+      c.textContent = w;
+      miniHead.appendChild(c);
+    });
+    card.appendChild(miniHead);
+
+    const miniGrid = document.createElement('div');
+    miniGrid.className = 'year-mini-grid';
+    getWeeks(viewYear, m).forEach(week => {
+      week.forEach(day => {
+        const cell = document.createElement('div');
+        cell.className = 'year-mini-cell' +
+          (day.getMonth()!==m ? ' other-month':'') +
+          (day.getTime()===today.getTime() ? ' today':'');
+        cell.textContent = day.getDate();
+        const onDay = tasksOnDay(day);
+        if (onDay.length) {
+          let best = onDay[0];
+          onDay.forEach(t => { if (PRIORITY_RANK[t.p] > PRIORITY_RANK[best.p]) best = t; });
+          const dot = document.createElement('div');
+          dot.className = 'year-dot';
+          dot.style.background = COLORS[best.p];
+          cell.appendChild(dot);
+        }
+        cell.addEventListener('click', () => goToMonth(viewYear, m, day));
+        miniGrid.appendChild(cell);
+      });
+    });
+    card.appendChild(miniGrid);
+
+    yearGrid.appendChild(card);
+  }
+  grid.appendChild(yearGrid);
+}
+
+function goToMonth(year, month, day) {
+  viewYear = year; viewMon = month;
+  if (day) viewWeekAnchor = sod(day);
+  setViewMode('month');
+}
+
+function setViewMode(mode) {
+  viewMode = mode;
+  document.querySelectorAll('.view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === mode));
+  render();
+}
+
+function render() {
+  const grid    = document.getElementById('calGrid');
+  const calHead = document.querySelector('.cal-head');
+  const wrap    = document.querySelector('.cal-wrap');
+  grid.innerHTML = '';
+  wrap.classList.remove('week-view','year-view');
+
+  if (viewMode === 'year') {
+    calHead.classList.add('hidden');
+    wrap.classList.add('year-view');
+    document.getElementById('monthLabel').textContent = String(viewYear);
+    renderYear(grid);
+  } else if (viewMode === 'week') {
+    calHead.classList.remove('hidden');
+    wrap.classList.add('week-view');
+    const anchor = sod(viewWeekAnchor);
+    const start  = new Date(anchor);
+    start.setDate(start.getDate() - start.getDay());
+    const week = [];
+    for (let i = 0; i < 7; i++) { const d = new Date(start); d.setDate(start.getDate()+i); week.push(d); }
+    document.getElementById('monthLabel').textContent = formatWeekLabel(week);
+    grid.appendChild(buildWeekRow(week, null));
+  } else {
+    calHead.classList.remove('hidden');
+    document.getElementById('monthLabel').textContent =
+      new Date(viewYear, viewMon, 1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+    getWeeks(viewYear, viewMon).forEach(week => grid.appendChild(buildWeekRow(week, viewMon)));
+  }
   updateCount();
 }
 
@@ -486,13 +593,29 @@ document.getElementById('cancelBtn').addEventListener('click', closeModal);
 document.getElementById('saveBtn') .addEventListener('click', saveTask);
 
 document.getElementById('prevBtn').addEventListener('click', ()=>{
-  if(--viewMon<0){viewMon=11;viewYear--;} render();
+  if (viewMode === 'week') {
+    viewWeekAnchor.setDate(viewWeekAnchor.getDate() - 7);
+  } else if (viewMode === 'year') {
+    viewYear--;
+  } else if (--viewMon < 0) { viewMon = 11; viewYear--; }
+  render();
 });
 document.getElementById('nextBtn').addEventListener('click', ()=>{
-  if(++viewMon>11){viewMon=0;viewYear++;} render();
+  if (viewMode === 'week') {
+    viewWeekAnchor.setDate(viewWeekAnchor.getDate() + 7);
+  } else if (viewMode === 'year') {
+    viewYear++;
+  } else if (++viewMon > 11) { viewMon = 0; viewYear++; }
+  render();
 });
 document.getElementById('todayBtn').addEventListener('click', ()=>{
-  viewYear=new Date().getFullYear(); viewMon=new Date().getMonth(); render();
+  const t = new Date();
+  viewYear = t.getFullYear(); viewMon = t.getMonth(); viewWeekAnchor = sod(t);
+  render();
+});
+
+document.querySelectorAll('.view-btn').forEach(btn => {
+  btn.addEventListener('click', () => setViewMode(btn.dataset.view));
 });
 
 document.getElementById('searchInput').addEventListener('input', e=>{
