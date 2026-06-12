@@ -304,6 +304,7 @@ function hidePopup() {
 const REPORT_STORAGE_KEY = 'ct_last_report_date';
 
 function maybeShowDeadlineReport() {
+  if (allTasks.length === 0) return;
   const today = toInput(new Date());
   if (localStorage.getItem(REPORT_STORAGE_KEY) === today) return;
   localStorage.setItem(REPORT_STORAGE_KEY, today);
@@ -561,6 +562,7 @@ async function createWorkspace() {
   localStorage.setItem(WORKSPACE_STORAGE_PREFIX + currentUserEmail, currentWorkspaceId);
   populateWorkspaceSelect();
   updateManagementVisibility();
+  document.getElementById('workspaceOverlay').dataset.forced = '';
   closeWorkspaceModal();
   await loadTasks();
 }
