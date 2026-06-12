@@ -442,6 +442,53 @@ async function loadWorkspaces(username) {
   currentWorkspaceId = workspaces.find(w => w.id === stored)?.id || workspaces[0].id;
   localStorage.setItem(WORKSPACE_STORAGE_PREFIX + username, currentWorkspaceId);
   populateWorkspaceSelect();
+  updateManagementVisibility();
+}
+
+function updateManagementVisibility() {
+  const w = workspaces.find(x => x.id === currentWorkspaceId);
+  document.getElementById('managementBtn').classList.toggle('hidden', w?.role !== 'owner');
+}
+
+async function openManagementModal() {
+  const { data, error } = await sb.from('workspace_members')
+    .select('username,role')
+    .eq('workspace_id', currentWorkspaceId)
+    .order('joined_at');
+  if (error) { console.error(error); return; }
+
+  const usersEl = document.getElementById('mgmtUsers');
+  usersEl.innerHTML = data.map(m => `
+    <div class="report-item">
+      <div class="report-info">
+        <div class="report-title">${esc(m.username)}</div>
+      </div>
+      <div class="report-prio" style="background:#3B82F61a;color:#3B82F6">${m.role === 'owner' ? 'Proprietário' : 'Membro'}</div>
+    </div>
+  `).join('');
+
+  const statsEl = document.getElementById('mgmtTaskStats');
+  const counts = { 'baixa':0, 'media':0, 'alta':0, 'muito-alta':0 };
+  allTasks.forEach(t => { if (counts[t.p] !== undefined) counts[t.p]++; });
+  statsEl.innerHTML = `
+    <div class="report-item">
+      <div class="report-info"><div class="report-title">Total de tarefas</div></div>
+      <div class="report-prio" style="background:#3B82F61a;color:#3B82F6">${allTasks.length}</div>
+    </div>
+  ` + Object.keys(PLABEL).map(p => `
+    <div class="report-item">
+      <div class="report-info"><div class="report-title">${PLABEL[p]}</div></div>
+      <div class="report-prio" style="background:${COLORS[p]}1a;color:${COLORS[p]}">
+        <div class="badge-dot" style="background:${COLORS[p]}"></div>${counts[p]}
+      </div>
+    </div>
+  `).join('');
+
+  document.getElementById('managementOverlay').classList.remove('hidden');
+}
+
+function closeManagementModal() {
+  document.getElementById('managementOverlay').classList.add('hidden');
 }
 
 function populateWorkspaceSelect() {
@@ -479,6 +526,7 @@ async function createWorkspace() {
   const username = localStorage.getItem(SESSION_USER_KEY);
   localStorage.setItem(WORKSPACE_STORAGE_PREFIX + username, currentWorkspaceId);
   populateWorkspaceSelect();
+  updateManagementVisibility();
   closeWorkspaceModal();
   await loadTasks();
 }
@@ -538,7 +586,15 @@ document.getElementById('workspaceSelect').addEventListener('change', async e=>{
   currentWorkspaceId = e.target.value;
   const username = localStorage.getItem(SESSION_USER_KEY);
   localStorage.setItem(WORKSPACE_STORAGE_PREFIX + username, currentWorkspaceId);
+  updateManagementVisibility();
   await loadTasks();
+});
+
+document.getElementById('managementBtn').addEventListener('click', openManagementModal);
+document.getElementById('managementCloseBtn').addEventListener('click', closeManagementModal);
+document.getElementById('managementOkBtn').addEventListener('click', closeManagementModal);
+document.getElementById('managementOverlay').addEventListener('click', e=>{
+  if(e.target===document.getElementById('managementOverlay')) closeManagementModal();
 });
 
 /* auth */

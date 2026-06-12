@@ -47,6 +47,7 @@
     <select class="form-input" id="workspaceSelect" title="Área de trabalho"></select>
     <button class="btn-sm" id="newWorkspaceBtn">+ Área</button>
     <button class="btn-sm" id="inviteBtn">Convidar</button>
+    <button class="btn-sm hidden" id="managementBtn">Gestão</button>
     <span id="loggedUser"></span>
     <button class="btn-sm" id="logoutBtn">Sair</button>
   </div>
@@ -202,6 +203,27 @@
     </div>
     <div class="modal-ft">
       <button class="btn-primary" id="inviteCopyBtn">Copiar link</button>
+    </div>
+  </div>
+</div>
+
+<!-- Gestão da área de trabalho -->
+<div class="overlay hidden" id="managementOverlay">
+  <div class="modal" style="width:420px">
+    <div class="modal-hd">
+      <h2>Gestão da área</h2>
+      <button class="btn-x" id="managementCloseBtn">×</button>
+    </div>
+    <div class="mgmt-section">
+      <h3 class="mgmt-title">Usuários</h3>
+      <div id="mgmtUsers"></div>
+    </div>
+    <div class="mgmt-section">
+      <h3 class="mgmt-title">Tarefas</h3>
+      <div id="mgmtTaskStats"></div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn-primary" id="managementOkBtn">Fechar</button>
     </div>
   </div>
 </div>

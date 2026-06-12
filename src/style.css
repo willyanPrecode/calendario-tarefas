@@ -1,5 +1,7 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
+.hidden{display:none!important}
+
 :root{
   --c-baixa:#10B981;
   --c-media:#3B82F6;
@@ -184,6 +186,10 @@ body{
 .btn-primary:hover{background:#2563EB}
 
 /* ── Report ── */
+/* ── Gestão ── */
+.mgmt-section{margin-bottom:16px}
+.mgmt-title{font-size:13px;font-weight:700;margin-bottom:4px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+
 .report-empty{font-size:13px;color:var(--muted);padding:8px 0 4px}
 .report-item{
   display:flex;align-items:center;justify-content:space-between;gap:12px;
