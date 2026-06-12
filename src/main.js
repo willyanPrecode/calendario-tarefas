@@ -464,9 +464,16 @@ async function openManagementModal() {
       <div class="report-info">
         <div class="report-title">${esc(m.username)}</div>
       </div>
-      <div class="report-prio" style="background:#3B82F61a;color:#3B82F6">${m.role === 'owner' ? 'Proprietário' : 'Membro'}</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="report-prio" style="background:#3B82F61a;color:#3B82F6">${m.role === 'owner' ? 'Proprietário' : 'Membro'}</div>
+        ${m.username !== currentUserEmail ? `<button class="mgmt-remove-btn" data-username="${esc(m.username)}">Remover</button>` : ''}
+      </div>
     </div>
   `).join('');
+
+  usersEl.querySelectorAll('.mgmt-remove-btn').forEach(btn => {
+    btn.addEventListener('click', () => removeMember(btn.dataset.username));
+  });
 
   const statsEl = document.getElementById('mgmtTaskStats');
   const counts = { 'baixa':0, 'media':0, 'alta':0, 'muito-alta':0 };
@@ -490,6 +497,33 @@ async function openManagementModal() {
 
 function closeManagementModal() {
   document.getElementById('managementOverlay').classList.add('hidden');
+}
+
+async function removeMember(username) {
+  if (!confirm(`Remover ${username} desta área de trabalho?`)) return;
+
+  const { error } = await sb.from('workspace_members')
+    .delete()
+    .eq('workspace_id', currentWorkspaceId)
+    .eq('username', username);
+  if (error) { console.error(error); return; }
+
+  await openManagementModal();
+}
+
+async function leaveWorkspace() {
+  const w = workspaces.find(x => x.id === currentWorkspaceId);
+  if (!w) return;
+  if (!confirm(`Tem certeza que deseja sair da área "${w.name}"?`)) return;
+
+  const { error } = await sb.from('workspace_members')
+    .delete()
+    .eq('workspace_id', currentWorkspaceId)
+    .eq('username', currentUserEmail);
+  if (error) { console.error(error); return; }
+
+  await loadWorkspaces(currentUserEmail);
+  await loadTasks();
 }
 
 function populateWorkspaceSelect() {
@@ -588,6 +622,8 @@ document.getElementById('workspaceSelect').addEventListener('change', async e=>{
   updateManagementVisibility();
   await loadTasks();
 });
+
+document.getElementById('leaveWorkspaceBtn').addEventListener('click', leaveWorkspace);
 
 document.getElementById('managementBtn').addEventListener('click', openManagementModal);
 document.getElementById('managementCloseBtn').addEventListener('click', closeManagementModal);
