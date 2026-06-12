@@ -44,6 +44,9 @@
     <div class="legend-item"><div class="legend-chip" style="background:var(--c-muito-alta)"></div>Muito Alta</div>
   </div>
   <div class="auth-info">
+    <select class="form-input" id="workspaceSelect" title="Área de trabalho"></select>
+    <button class="btn-sm" id="newWorkspaceBtn">+ Área</button>
+    <button class="btn-sm" id="inviteBtn">Convidar</button>
     <span id="loggedUser"></span>
     <button class="btn-sm" id="logoutBtn">Sair</button>
   </div>
@@ -164,6 +167,42 @@
   <div class="popup-actions">
     <button class="pop-btn" id="popEditBtn">Editar</button>
     <button class="pop-btn del" id="popDelBtn">Excluir</button>
+  </div>
+</div>
+
+<!-- Nova área de trabalho -->
+<div class="overlay hidden" id="workspaceOverlay">
+  <div class="modal" style="width:340px">
+    <div class="modal-hd">
+      <h2>Nova área de trabalho</h2>
+      <button class="btn-x" id="workspaceCloseBtn">×</button>
+    </div>
+    <div class="form-field">
+      <label class="form-label" for="workspaceName">Nome</label>
+      <input class="form-input" id="workspaceName" type="text" placeholder="Ex: Marketing" autocomplete="off">
+    </div>
+    <div class="auth-error" id="workspaceError"></div>
+    <div class="modal-ft">
+      <button class="btn-ghost" id="workspaceCancelBtn">Cancelar</button>
+      <button class="btn-primary" id="workspaceSaveBtn">Criar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Convidar para área de trabalho -->
+<div class="overlay hidden" id="inviteOverlay">
+  <div class="modal" style="width:420px">
+    <div class="modal-hd">
+      <h2>Convidar para a área</h2>
+      <button class="btn-x" id="inviteCloseBtn">×</button>
+    </div>
+    <div class="form-field">
+      <label class="form-label">Link de convite</label>
+      <input class="form-input" id="inviteLink" type="text" readonly>
+    </div>
+    <div class="modal-ft">
+      <button class="btn-primary" id="inviteCopyBtn">Copiar link</button>
+    </div>
   </div>
 </div>
 

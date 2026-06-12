@@ -48,6 +48,7 @@ body{
 
 /* ── Auth ── */
 .auth-info{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted);margin-left:20px}
+.auth-info #workspaceSelect{width:auto;max-width:180px;padding:6px 10px;font-size:13px;cursor:pointer}
 .auth-error{
   color:var(--c-muito-alta);font-size:12px;min-height:16px;
   margin:-8px 0 8px;

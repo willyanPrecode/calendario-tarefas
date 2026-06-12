@@ -13,10 +13,24 @@ let popId    = null;
 let searchQuery       = '';
 let priorityFilter    = '';
 let responsibleFilter = '';
+let workspaces         = [];
+let currentWorkspaceId = null;
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
 
 /* persistence */
 async function loadTasks() {
-  const { data, error } = await sb.from('tasks').select('*').order('start_date');
+  if (!currentWorkspaceId) {
+    allTasks = [];
+    populateResponsibleFilter();
+    applyFilters();
+    return;
+  }
+  const { data, error } = await sb.from('tasks').select('*').eq('workspace_id', currentWorkspaceId).order('start_date');
   if (error) { console.error(error); return; }
   allTasks = data.map(t => ({
     id: t.id, title: t.title, s: t.start_date, e: t.end_date,
@@ -244,7 +258,7 @@ async function saveTask() {
     const { error } = await sb.from('tasks').update(row).eq('id', editId);
     if (error) { console.error(error); return; }
   } else {
-    const { error } = await sb.from('tasks').insert(row);
+    const { error } = await sb.from('tasks').insert({ ...row, workspace_id: currentWorkspaceId });
     if (error) { console.error(error); return; }
   }
   closeModal();
@@ -403,6 +417,130 @@ document.getElementById('popDelBtn').addEventListener('click', async ()=>{
   }
 });
 
+/* workspaces */
+const WORKSPACE_STORAGE_PREFIX = 'ct_current_workspace_';
+
+async function loadWorkspaces(username) {
+  const { data, error } = await sb.from('workspaces')
+    .select('id,name,invite_token,workspace_members(role)')
+    .order('created_at');
+  if (error) { console.error(error); return; }
+
+  workspaces = (data || []).map(w => ({
+    id: w.id, name: w.name, inviteToken: w.invite_token,
+    role: w.workspace_members?.[0]?.role || 'member'
+  }));
+
+  if (workspaces.length === 0) {
+    currentWorkspaceId = null;
+    populateWorkspaceSelect();
+    openWorkspaceModal(true);
+    return;
+  }
+
+  const stored = localStorage.getItem(WORKSPACE_STORAGE_PREFIX + username);
+  currentWorkspaceId = workspaces.find(w => w.id === stored)?.id || workspaces[0].id;
+  localStorage.setItem(WORKSPACE_STORAGE_PREFIX + username, currentWorkspaceId);
+  populateWorkspaceSelect();
+}
+
+function populateWorkspaceSelect() {
+  const sel = document.getElementById('workspaceSelect');
+  sel.innerHTML = workspaces.map(w => `<option value="${w.id}">${esc(w.name)}</option>`).join('');
+  sel.value = currentWorkspaceId || '';
+}
+
+function openWorkspaceModal(forced) {
+  document.getElementById('workspaceName').value = '';
+  document.getElementById('workspaceError').textContent = '';
+  document.getElementById('workspaceOverlay').dataset.forced = forced ? '1' : '';
+  document.getElementById('workspaceCancelBtn').style.display = forced ? 'none' : '';
+  document.getElementById('workspaceCloseBtn').style.display = forced ? 'none' : '';
+  document.getElementById('workspaceOverlay').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('workspaceName').focus(), 40);
+}
+
+function closeWorkspaceModal() {
+  if (document.getElementById('workspaceOverlay').dataset.forced === '1') return;
+  document.getElementById('workspaceOverlay').classList.add('hidden');
+}
+
+async function createWorkspace() {
+  const name = document.getElementById('workspaceName').value.trim();
+  const errEl = document.getElementById('workspaceError');
+  if (!name) { errEl.textContent = 'Informe um nome.'; return; }
+
+  const { data, error } = await sb.rpc('create_workspace', { p_name: name });
+  if (error) { console.error(error); errEl.textContent = 'Não foi possível criar a área de trabalho.'; return; }
+
+  const w = data[0];
+  workspaces.push({ id: w.id, name: w.name, inviteToken: w.invite_token, role: w.role });
+  currentWorkspaceId = w.id;
+  const username = localStorage.getItem(SESSION_USER_KEY);
+  localStorage.setItem(WORKSPACE_STORAGE_PREFIX + username, currentWorkspaceId);
+  populateWorkspaceSelect();
+  closeWorkspaceModal();
+  await loadTasks();
+}
+
+function openInviteModal() {
+  const w = workspaces.find(x => x.id === currentWorkspaceId);
+  if (!w) return;
+  const url = new URL(location.href);
+  url.search = '';
+  url.searchParams.set('invite', w.inviteToken);
+  document.getElementById('inviteLink').value = url.toString();
+  document.getElementById('inviteOverlay').classList.remove('hidden');
+}
+
+function closeInviteModal() {
+  document.getElementById('inviteOverlay').classList.add('hidden');
+}
+
+async function acceptPendingInvite() {
+  const token = new URLSearchParams(location.search).get('invite');
+  if (!token) return;
+
+  const { error } = await sb.rpc('accept_invite', { p_token: token });
+  if (error) console.error(error);
+
+  const url = new URL(location.href);
+  url.searchParams.delete('invite');
+  history.replaceState({}, '', url);
+}
+
+document.getElementById('newWorkspaceBtn').addEventListener('click', ()=>openWorkspaceModal(false));
+document.getElementById('workspaceCloseBtn').addEventListener('click', closeWorkspaceModal);
+document.getElementById('workspaceCancelBtn').addEventListener('click', closeWorkspaceModal);
+document.getElementById('workspaceSaveBtn').addEventListener('click', createWorkspace);
+document.getElementById('workspaceName').addEventListener('keydown', e=>{
+  if(e.key==='Enter') createWorkspace();
+});
+document.getElementById('workspaceOverlay').addEventListener('click', e=>{
+  if(e.target===document.getElementById('workspaceOverlay')) closeWorkspaceModal();
+});
+
+document.getElementById('inviteBtn').addEventListener('click', openInviteModal);
+document.getElementById('inviteCloseBtn').addEventListener('click', closeInviteModal);
+document.getElementById('inviteOverlay').addEventListener('click', e=>{
+  if(e.target===document.getElementById('inviteOverlay')) closeInviteModal();
+});
+document.getElementById('inviteCopyBtn').addEventListener('click', async ()=>{
+  const input = document.getElementById('inviteLink');
+  await navigator.clipboard.writeText(input.value);
+  const btn = document.getElementById('inviteCopyBtn');
+  const original = btn.textContent;
+  btn.textContent = 'Copiado!';
+  setTimeout(()=>btn.textContent = original, 1500);
+});
+
+document.getElementById('workspaceSelect').addEventListener('change', async e=>{
+  currentWorkspaceId = e.target.value;
+  const username = localStorage.getItem(SESSION_USER_KEY);
+  localStorage.setItem(WORKSPACE_STORAGE_PREFIX + username, currentWorkspaceId);
+  await loadTasks();
+});
+
 /* auth */
 const SESSION_TOKEN_KEY   = 'ct_session_token';
 const SESSION_EXPIRES_KEY = 'ct_session_expires';
@@ -466,6 +604,8 @@ async function handleLogin(e) {
   document.getElementById('authPass').value = '';
   document.getElementById('loggedUser').textContent = data.username;
   hideAuthOverlay();
+  await acceptPendingInvite();
+  await loadWorkspaces(data.username);
   await loadTasks();
 }
 
@@ -483,6 +623,8 @@ async function init() {
     setSessionToken(session.token);
     document.getElementById('loggedUser').textContent = session.username || '';
     hideAuthOverlay();
+    await acceptPendingInvite();
+    await loadWorkspaces(session.username);
     await loadTasks();
   } else {
     clearSession();
