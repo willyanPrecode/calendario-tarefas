@@ -7,26 +7,53 @@
 </head>
 <body>
 
-<!-- Login -->
+<!-- Login / Cadastro -->
 <div class="overlay" id="authOverlay">
   <div class="modal" style="width:340px">
     <div class="modal-hd">
-      <h2>Entrar</h2>
+      <h2 id="authTitle">Entrar</h2>
     </div>
+
     <form id="authForm">
       <div class="form-field">
-        <label class="form-label" for="authUser">Usuário</label>
-        <input class="form-input" id="authUser" type="text" autocomplete="username" required>
+        <label class="form-label" for="authUser">E-mail</label>
+        <input class="form-input" id="authUser" type="email" autocomplete="username" required>
       </div>
       <div class="form-field">
         <label class="form-label" for="authPass">Senha</label>
         <input class="form-input" id="authPass" type="password" autocomplete="current-password" required>
       </div>
       <div class="auth-error" id="authError"></div>
+      <div class="auth-info-msg hidden" id="authInfoMsg"></div>
       <div class="modal-ft">
         <button class="btn-primary" type="submit" id="authSubmitBtn" style="width:100%">Entrar</button>
       </div>
     </form>
+
+    <form id="signupForm" class="hidden">
+      <div class="form-field">
+        <label class="form-label" for="signupEmail">E-mail</label>
+        <input class="form-input" id="signupEmail" type="email" autocomplete="username" required>
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="signupPass">Senha</label>
+        <input class="form-input" id="signupPass" type="password" autocomplete="new-password" required minlength="6">
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="signupPassConfirm">Confirmar senha</label>
+        <input class="form-input" id="signupPassConfirm" type="password" autocomplete="new-password" required minlength="6">
+      </div>
+      <div class="auth-error" id="signupError"></div>
+      <div class="auth-info-msg hidden" id="signupInfoMsg"></div>
+      <div class="modal-ft">
+        <button class="btn-primary" type="submit" id="signupSubmitBtn" style="width:100%">Criar conta</button>
+      </div>
+    </form>
+
+    <div class="auth-toggle">
+      <a href="#" id="showSignupLink">Criar uma conta</a>
+      <a href="#" id="showLoginLink" class="hidden">Já tenho conta, entrar</a>
+    </div>
   </div>
 </div>
 

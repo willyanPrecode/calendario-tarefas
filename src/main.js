@@ -1,5 +1,5 @@
 import './style.css';
-import { sb, setSessionToken } from './supabaseClient.js';
+import { sb } from './supabaseClient.js';
 
 const COLORS = { 'baixa':'#10B981','media':'#3B82F6','alta':'#F59E0B','muito-alta':'#EF4444' };
 const PLABEL = { 'baixa':'Baixa','media':'Média','alta':'Alta','muito-alta':'Muito Alta' };
@@ -15,6 +15,7 @@ let priorityFilter    = '';
 let responsibleFilter = '';
 let workspaces         = [];
 let currentWorkspaceId = null;
+let currentUserEmail   = null;
 
 function esc(s) {
   const d = document.createElement('div');
@@ -523,8 +524,7 @@ async function createWorkspace() {
   const w = data[0];
   workspaces.push({ id: w.id, name: w.name, inviteToken: w.invite_token, role: w.role });
   currentWorkspaceId = w.id;
-  const username = localStorage.getItem(SESSION_USER_KEY);
-  localStorage.setItem(WORKSPACE_STORAGE_PREFIX + username, currentWorkspaceId);
+  localStorage.setItem(WORKSPACE_STORAGE_PREFIX + currentUserEmail, currentWorkspaceId);
   populateWorkspaceSelect();
   updateManagementVisibility();
   closeWorkspaceModal();
@@ -584,8 +584,7 @@ document.getElementById('inviteCopyBtn').addEventListener('click', async ()=>{
 
 document.getElementById('workspaceSelect').addEventListener('change', async e=>{
   currentWorkspaceId = e.target.value;
-  const username = localStorage.getItem(SESSION_USER_KEY);
-  localStorage.setItem(WORKSPACE_STORAGE_PREFIX + username, currentWorkspaceId);
+  localStorage.setItem(WORKSPACE_STORAGE_PREFIX + currentUserEmail, currentWorkspaceId);
   updateManagementVisibility();
   await loadTasks();
 });
@@ -598,25 +597,6 @@ document.getElementById('managementOverlay').addEventListener('click', e=>{
 });
 
 /* auth */
-const SESSION_TOKEN_KEY   = 'ct_session_token';
-const SESSION_EXPIRES_KEY = 'ct_session_expires';
-const SESSION_USER_KEY    = 'ct_session_user';
-
-function getSession() {
-  const token   = localStorage.getItem(SESSION_TOKEN_KEY);
-  const expires = localStorage.getItem(SESSION_EXPIRES_KEY);
-  if (!token || !expires) return null;
-  if (new Date(expires) <= new Date()) return null;
-  return { token, username: localStorage.getItem(SESSION_USER_KEY) };
-}
-
-function clearSession() {
-  localStorage.removeItem(SESSION_TOKEN_KEY);
-  localStorage.removeItem(SESSION_EXPIRES_KEY);
-  localStorage.removeItem(SESSION_USER_KEY);
-  setSessionToken(null);
-}
-
 function showAuthOverlay() {
   document.getElementById('authOverlay').classList.remove('hidden');
   document.getElementById('appRoot').classList.add('hidden');
@@ -627,63 +607,111 @@ function hideAuthOverlay() {
   document.getElementById('appRoot').classList.remove('hidden');
 }
 
+function showLoginForm() {
+  document.getElementById('authTitle').textContent = 'Entrar';
+  document.getElementById('signupForm').classList.add('hidden');
+  document.getElementById('authForm').classList.remove('hidden');
+  document.getElementById('showLoginLink').classList.add('hidden');
+  document.getElementById('showSignupLink').classList.remove('hidden');
+}
+
+function showSignupForm() {
+  document.getElementById('authTitle').textContent = 'Criar conta';
+  document.getElementById('authForm').classList.add('hidden');
+  document.getElementById('signupForm').classList.remove('hidden');
+  document.getElementById('showSignupLink').classList.add('hidden');
+  document.getElementById('showLoginLink').classList.remove('hidden');
+}
+
+async function afterLogin(email) {
+  currentUserEmail = email;
+  document.getElementById('loggedUser').textContent = email;
+  hideAuthOverlay();
+  await acceptPendingInvite();
+  await loadWorkspaces(email);
+  await loadTasks();
+}
+
 async function handleLogin(e) {
   e.preventDefault();
-  const username = document.getElementById('authUser').value.trim();
+  const email = document.getElementById('authUser').value.trim();
   const password = document.getElementById('authPass').value;
   const errEl = document.getElementById('authError');
   const btn = document.getElementById('authSubmitBtn');
   errEl.textContent = '';
-  if (!username || !password) return;
+  if (!email || !password) return;
 
   btn.disabled = true;
-  const { data, error } = await sb.rpc('login', { p_username: username, p_password: password });
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
   btn.disabled = false;
 
   if (error) {
-    const msg = error.message || '';
-    if (msg.includes('PERMANENTLY_BLOCKED')) {
-      errEl.textContent = 'Excesso de tentativas inválidas. Acesso bloqueado permanentemente para este IP.';
-    } else if (msg.includes('TEMPORARILY_BLOCKED')) {
-      const secs = msg.split(':')[1] || '60';
-      errEl.textContent = `Muitas tentativas inválidas. Tente novamente em ${secs}s.`;
-    } else {
-      errEl.textContent = 'Usuário ou senha inválidos.';
-    }
+    errEl.textContent = 'E-mail ou senha inválidos.';
     return;
   }
 
-  localStorage.setItem(SESSION_TOKEN_KEY, data.token);
-  localStorage.setItem(SESSION_EXPIRES_KEY, data.expires_at);
-  localStorage.setItem(SESSION_USER_KEY, data.username);
-  setSessionToken(data.token);
   document.getElementById('authPass').value = '';
-  document.getElementById('loggedUser').textContent = data.username;
-  hideAuthOverlay();
-  await acceptPendingInvite();
-  await loadWorkspaces(data.username);
-  await loadTasks();
+  await afterLogin(data.user.email);
 }
 
-function handleLogout() {
-  clearSession();
+async function handleSignup(e) {
+  e.preventDefault();
+  const email = document.getElementById('signupEmail').value.trim();
+  const password = document.getElementById('signupPass').value;
+  const passwordConfirm = document.getElementById('signupPassConfirm').value;
+  const errEl = document.getElementById('signupError');
+  const infoEl = document.getElementById('signupInfoMsg');
+  const btn = document.getElementById('signupSubmitBtn');
+  errEl.textContent = '';
+  infoEl.classList.add('hidden');
+  if (!email || !password) return;
+  if (password !== passwordConfirm) { errEl.textContent = 'As senhas não coincidem.'; return; }
+
+  btn.disabled = true;
+  const { data, error } = await sb.auth.signUp({ email, password });
+  btn.disabled = false;
+
+  if (error) {
+    errEl.textContent = error.message.includes('already registered')
+      ? 'Este e-mail já está cadastrado.'
+      : 'Não foi possível criar a conta.';
+    return;
+  }
+
+  if (data.session) {
+    await afterLogin(data.user.email);
+    return;
+  }
+
+  document.getElementById('signupForm').reset();
+  infoEl.textContent = 'Conta criada! Verifique seu e-mail para confirmar o cadastro antes de entrar.';
+  infoEl.classList.remove('hidden');
+}
+
+async function handleLogout() {
+  currentUserEmail = null;
+  await sb.auth.signOut();
   location.reload();
 }
 
 document.getElementById('authForm').addEventListener('submit', handleLogin);
+document.getElementById('signupForm').addEventListener('submit', handleSignup);
 document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+document.getElementById('showSignupLink').addEventListener('click', e => { e.preventDefault(); showSignupForm(); });
+document.getElementById('showLoginLink').addEventListener('click', e => { e.preventDefault(); showLoginForm(); });
+
+sb.auth.onAuthStateChange((event) => {
+  if (event === 'SIGNED_OUT') {
+    currentUserEmail = null;
+    showAuthOverlay();
+  }
+});
 
 async function init() {
-  const session = getSession();
+  const { data: { session } } = await sb.auth.getSession();
   if (session) {
-    setSessionToken(session.token);
-    document.getElementById('loggedUser').textContent = session.username || '';
-    hideAuthOverlay();
-    await acceptPendingInvite();
-    await loadWorkspaces(session.username);
-    await loadTasks();
+    await afterLogin(session.user.email);
   } else {
-    clearSession();
     showAuthOverlay();
     setTimeout(()=>document.getElementById('authUser').focus(), 40);
   }
