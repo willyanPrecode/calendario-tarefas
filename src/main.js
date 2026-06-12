@@ -3,6 +3,9 @@ import { sb } from './supabaseClient.js';
 
 const COLORS = { 'baixa':'#10B981','media':'#3B82F6','alta':'#F59E0B','muito-alta':'#EF4444' };
 const PLABEL = { 'baixa':'Baixa','media':'Média','alta':'Alta','muito-alta':'Muito Alta' };
+const WEEKDAYS_PT = ['domingo','segunda-feira','terça-feira','quarta-feira','quinta-feira','sexta-feira','sábado'];
+let selectedRecurType     = 'none';
+let selectedRecurInterval = 1;
 
 let allTasks = [];
 let tasks    = [];
@@ -36,7 +39,8 @@ async function loadTasks() {
   allTasks = data.map(t => ({
     id: t.id, title: t.title, s: t.start_date, e: t.end_date,
     p: t.priority, responsible: t.responsible || '',
-    createdBy: t.created_by || '', updatedBy: t.updated_by || '', updatedAt: t.updated_at
+    createdBy: t.created_by || '', updatedBy: t.updated_by || '', updatedAt: t.updated_at,
+    recurrence: t.recurrence || null
   }));
   populateResponsibleFilter();
   applyFilters();
@@ -84,6 +88,46 @@ function fmt(str) {
 }
 function sod(dt) { const d=new Date(dt); d.setHours(0,0,0,0); return d; }
 
+/* recurrence */
+function getOccurrenceDates(t, rangeStart, rangeEnd) {
+  const r = t.recurrence;
+  if (!r || r.type === 'none') return null;
+  const anchor = sod(ld(t.s));
+  const until = r.until ? sod(ld(r.until)) : null;
+  let from = sod(rangeStart) > anchor ? sod(rangeStart) : anchor;
+  let to   = sod(rangeEnd);
+  if (until && until < to) to = until;
+  const dates = [];
+  const cur = new Date(from);
+  while (cur <= to) {
+    let match = false;
+    if (r.type === 'daily') {
+      const diffDays = Math.round((cur - anchor) / 86400000);
+      match = diffDays % r.interval === 0;
+    } else if (r.type === 'weekly') {
+      match = cur.getDay() === anchor.getDay();
+    } else if (r.type === 'monthly') {
+      match = cur.getDate() === anchor.getDate();
+    }
+    if (match) dates.push(new Date(cur));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return dates;
+}
+
+function recurrenceLabel(r, anchorStr) {
+  if (!r || r.type === 'none') return '';
+  const anchor = ld(anchorStr);
+  if (r.type === 'daily') {
+    if (r.interval === 1) return 'Repete todos os dias';
+    if (r.interval === 2) return 'Repete dia sim, dia não';
+    return `Repete a cada ${r.interval} dias`;
+  }
+  if (r.type === 'weekly') return `Repete toda ${WEEKDAYS_PT[anchor.getDay()]}`;
+  if (r.type === 'monthly') return `Repete todo dia ${anchor.getDate()} do mês`;
+  return '';
+}
+
 /* weeks */
 function getWeeks(y, m) {
   const first = new Date(y, m, 1);
@@ -101,10 +145,24 @@ function getWeeks(y, m) {
   return weeks;
 }
 
+function occKey(t) { return t._occId || t.id; }
+
 function weekTasks(week) {
   const ws = sod(week[0]);
   const we = new Date(week[6]); we.setHours(23,59,59,999);
-  return tasks.filter(t => ld(t.s) <= we && ld(t.e) >= ws);
+  const result = [];
+  tasks.forEach(t => {
+    if (t.recurrence && t.recurrence.type !== 'none') {
+      const dates = getOccurrenceDates(t, ws, we) || [];
+      dates.forEach(d => {
+        const ds = toInput(d);
+        result.push({ ...t, s: ds, e: ds, _occId: `${t.id}__${ds}`, _baseId: t.id });
+      });
+    } else if (ld(t.s) <= we && ld(t.e) >= ws) {
+      result.push(t);
+    }
+  });
+  return result;
 }
 
 function assignLanes(wt, week) {
@@ -122,7 +180,7 @@ function assignLanes(wt, week) {
       if (occ[i] < sc) { lane = i; occ[i] = ec; break; }
     }
     if (lane < 0) { lane = occ.length; occ.push(ec); }
-    res[t.id] = lane;
+    res[occKey(t)] = lane;
   });
   return res;
 }
@@ -177,14 +235,17 @@ function render() {
         const ce = new Date(Math.min(te, we));
         const sc = cs.getDay(), ec = ce.getDay();
         const cL = ts < ws, cR = te > we;
-        const lane = lanes[t.id];
+        const lane = lanes[occKey(t)];
+        const isRecurring = !!(t.recurrence && t.recurrence.type !== 'none');
+        const baseId = t._baseId || t.id;
 
         const lp = sc/7*100;
         const wp = (ec-sc+1)/7*100;
 
         const bar = document.createElement('div');
-        bar.className = 'task-bar';
-        bar.dataset.id = t.id;
+        bar.className = 'task-bar' + (isRecurring ? ' recurring' : '');
+        bar.dataset.id = baseId;
+        bar.dataset.occDate = t.s;
         bar.title = t.title;
         bar.style.cssText = [
           `left:calc(${lp}% + 2px)`,
@@ -194,8 +255,8 @@ function render() {
           `border-radius:${cL?'0':'6px'} ${cR?'0':'6px'} ${cR?'0':'6px'} ${cL?'0':'6px'}`,
           `z-index:${lane+1}`
         ].join(';');
-        bar.textContent = (cL ? '◂ ' : '') + t.title;
-        bar.addEventListener('click', e => { e.stopPropagation(); showPopup(t.id, e); });
+        bar.textContent = (cL ? '◂ ' : '') + (isRecurring ? '↻ ' : '') + t.title;
+        bar.addEventListener('click', e => { e.stopPropagation(); showPopup(baseId, e, t.s); });
         barsEl.appendChild(bar);
       });
       weekEl.appendChild(barsEl);
@@ -210,10 +271,48 @@ function render() {
   updateCount();
 }
 
+/* recurrence UI */
+function setRecurType(type) {
+  selectedRecurType = type;
+  document.querySelectorAll('.recur-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.recur === type);
+  });
+  document.getElementById('recurDaily').classList.toggle('hidden', type !== 'daily');
+  document.getElementById('recurWeekly').classList.toggle('hidden', type !== 'weekly');
+  document.getElementById('recurMonthly').classList.toggle('hidden', type !== 'monthly');
+  document.getElementById('recurEndHint').classList.toggle('hidden', type === 'none');
+  document.getElementById('recurUntilField').classList.toggle('hidden', type === 'none');
+  document.getElementById('fEndField').classList.toggle('hidden', type !== 'none');
+  if (type !== 'none') {
+    document.getElementById('fEnd').value = document.getElementById('fStart').value;
+  }
+  updateRecurHints();
+}
+
+function setRecurInterval(n) {
+  selectedRecurInterval = n;
+  document.getElementById('recurInterval').value = n;
+  document.querySelectorAll('.recur-chip').forEach(c => {
+    c.classList.toggle('active', Number(c.dataset.interval) === n);
+  });
+}
+
+function updateRecurHints() {
+  const s = document.getElementById('fStart').value;
+  if (!s) return;
+  const d = ld(s);
+  document.getElementById('recurWeeklyHint').textContent = `Repetirá toda ${WEEKDAYS_PT[d.getDay()]}, a partir de ${fmt(s)}.`;
+  document.getElementById('recurMonthlyHint').textContent = `Repetirá todo dia ${d.getDate()} de cada mês, a partir de ${fmt(s)}.`;
+  if (selectedRecurType !== 'none') {
+    document.getElementById('fEnd').value = s;
+  }
+}
+
 /* modal */
 function openModal(id, date) {
   editId = id || null;
   document.getElementById('modalTitle').textContent = id ? 'Editar Tarefa' : 'Nova Tarefa';
+  document.getElementById('fRecurUntil').value = '';
   if (id) {
     const t = tasks.find(x=>x.id===id);
     document.getElementById('fTitle').value = t.title;
@@ -221,6 +320,15 @@ function openModal(id, date) {
     document.getElementById('fStart').value = t.s;
     document.getElementById('fEnd').value   = t.e;
     document.querySelector(`input[name="fp"][value="${t.p}"]`).checked = true;
+    const r = t.recurrence;
+    if (r && r.type !== 'none') {
+      setRecurType(r.type);
+      setRecurInterval(r.type === 'daily' ? (r.interval || 1) : 1);
+      document.getElementById('fRecurUntil').value = r.until || '';
+    } else {
+      setRecurInterval(1);
+      setRecurType('none');
+    }
   } else {
     document.getElementById('fTitle').value = '';
     document.getElementById('fResponsible').value = '';
@@ -228,6 +336,8 @@ function openModal(id, date) {
     document.getElementById('fStart').value = ds;
     document.getElementById('fEnd').value   = ds;
     document.getElementById('pBaixa').checked = true;
+    setRecurInterval(1);
+    setRecurType('none');
   }
   document.getElementById('overlay').classList.remove('hidden');
   setTimeout(()=>document.getElementById('fTitle').focus(), 40);
@@ -253,7 +363,22 @@ async function saveTask() {
   if (!s || !e) return;
   if (s > e) { flash(document.getElementById('fEnd')); return; }
 
-  const row = { title, responsible: responsible || null, start_date: s, end_date: e, priority: p };
+  let recurrence = null;
+  if (selectedRecurType !== 'none') {
+    recurrence = { type: selectedRecurType };
+    if (selectedRecurType === 'daily') {
+      const interval = parseInt(document.getElementById('recurInterval').value, 10);
+      recurrence.interval = (interval > 0) ? interval : 1;
+    }
+    const until = document.getElementById('fRecurUntil').value;
+    if (until) {
+      if (until < s) { flash(document.getElementById('fRecurUntil')); return; }
+      recurrence.until = until;
+    }
+  }
+
+  const endDate = selectedRecurType !== 'none' ? s : e;
+  const row = { title, responsible: responsible || null, start_date: s, end_date: endDate, priority: p, recurrence };
 
   if (editId) {
     const { error } = await sb.from('tasks').update(row).eq('id', editId);
@@ -267,12 +392,22 @@ async function saveTask() {
 }
 
 /* popup */
-function showPopup(id, evt) {
+function showPopup(id, evt, occDate) {
   const t = tasks.find(x=>x.id===id);
   if (!t) return;
   popId = id;
   document.getElementById('popName').textContent = t.title;
-  document.getElementById('popDates').textContent = `${fmt(t.s)} → ${fmt(t.e)}`;
+  const isRecurring = !!(t.recurrence && t.recurrence.type !== 'none');
+  document.getElementById('popDates').textContent = (isRecurring && occDate)
+    ? `Ocorrência em ${fmt(occDate)}`
+    : `${fmt(t.s)} → ${fmt(t.e)}`;
+  const recurEl = document.getElementById('popRecur');
+  if (isRecurring) {
+    recurEl.textContent = `↻ ${recurrenceLabel(t.recurrence, t.s)}` + (t.recurrence.until ? ` até ${fmt(t.recurrence.until)}` : '');
+    recurEl.style.display = '';
+  } else {
+    recurEl.style.display = 'none';
+  }
   document.getElementById('popResponsible').textContent = t.responsible ? `Responsável: ${t.responsible}` : 'Sem responsável';
   const auditEl = document.getElementById('popAudit');
   const auditLines = [];
@@ -397,6 +532,20 @@ document.getElementById('fStart').addEventListener('change', ()=>{
   const s = document.getElementById('fStart').value;
   const e = document.getElementById('fEnd').value;
   if(s && e && s > e) document.getElementById('fEnd').value = s;
+  updateRecurHints();
+});
+
+document.querySelectorAll('.recur-btn').forEach(btn => {
+  btn.addEventListener('click', () => setRecurType(btn.dataset.recur));
+});
+document.querySelectorAll('.recur-chip').forEach(chip => {
+  chip.addEventListener('click', () => setRecurInterval(Number(chip.dataset.interval)));
+});
+document.getElementById('recurInterval').addEventListener('input', () => {
+  const n = parseInt(document.getElementById('recurInterval').value, 10);
+  document.querySelectorAll('.recur-chip').forEach(c => {
+    c.classList.toggle('active', Number(c.dataset.interval) === n);
+  });
 });
 
 document.getElementById('popEditBtn').addEventListener('click', ()=>{

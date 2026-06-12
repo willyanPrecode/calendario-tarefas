@@ -173,9 +173,46 @@
         <label class="form-label" for="fStart">Data de Início</label>
         <input class="form-input" id="fStart" type="date">
       </div>
-      <div class="form-field">
+      <div class="form-field" id="fEndField">
         <label class="form-label" for="fEnd">Prazo Final</label>
         <input class="form-input" id="fEnd" type="date">
+      </div>
+    </div>
+
+    <div class="form-field">
+      <label class="form-label">Repetir</label>
+      <div class="recur-grid">
+        <button type="button" class="recur-btn active" data-recur="none">Não repete</button>
+        <button type="button" class="recur-btn" data-recur="daily">Por intervalo</button>
+        <button type="button" class="recur-btn" data-recur="weekly">Semanalmente</button>
+        <button type="button" class="recur-btn" data-recur="monthly">Mensalmente</button>
+      </div>
+
+      <div id="recurDaily" class="recur-panel hidden">
+        <div class="recur-chips">
+          <button type="button" class="recur-chip" data-interval="1">Todos os dias</button>
+          <button type="button" class="recur-chip" data-interval="2">Dia sim, dia não</button>
+          <button type="button" class="recur-chip" data-interval="5">A cada 5 dias</button>
+        </div>
+        <div class="form-field" style="margin:10px 0 0">
+          <label class="form-label" for="recurInterval">Repetir a cada (dias)</label>
+          <input class="form-input" id="recurInterval" type="number" min="1" value="1">
+        </div>
+      </div>
+
+      <div id="recurWeekly" class="recur-panel hidden">
+        <p class="recur-hint" id="recurWeeklyHint"></p>
+      </div>
+
+      <div id="recurMonthly" class="recur-panel hidden">
+        <p class="recur-hint" id="recurMonthlyHint"></p>
+      </div>
+
+      <p class="recur-hint" id="recurEndHint">Tarefas recorrentes ocorrem em um único dia a cada repetição.</p>
+
+      <div id="recurUntilField" class="form-field hidden" style="margin:10px 0 0">
+        <label class="form-label" for="fRecurUntil">Repetir até (opcional)</label>
+        <input class="form-input" id="fRecurUntil" type="date">
       </div>
     </div>
 
@@ -190,6 +227,7 @@
 <div class="popup hidden" id="popup">
   <div class="popup-name" id="popName"></div>
   <div class="popup-dates" id="popDates"></div>
+  <div class="popup-dates" id="popRecur"></div>
   <div class="popup-dates" id="popResponsible"></div>
   <div class="popup-audit" id="popAudit"></div>
   <div class="popup-badge" id="popBadge"></div>
